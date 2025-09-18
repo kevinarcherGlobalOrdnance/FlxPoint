@@ -1,0 +1,57 @@
+{
+  "id": "efaf50d6-c006-4506-93a3-5929028f0930",
+  "name": "FlxPoint",
+  "publisher": "Global Ordnance",
+  "description": "FlxPoint Integration Framework",
+  "version": "1.0.0.36",
+  "url": "https://www.gloablordnance.com",
+  "runtime": "15.0",
+  "target": "Cloud",
+  "application": "26.0.0.0",
+  "platform": "26.0.38248.0",
+  "applicationInsightsConnectionString": "InstrumentationKey=2f31ad8c-f3df-4461-9cf0-7457c73b5e44;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=d2b425d8-a948-46ca-9043-74b4f18e680b",
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true,
+    "applyToDevExtension": false
+  },
+  "features": [
+    "NoImplicitWith"
+  ],
+  "dependencies": [
+    {
+      "id": "41ab7a35-e82d-40e8-8856-efddd4ea413c",
+      "name": "Global Customizations",
+      "version": "1.0.1.204",
+      "publisher": "Global Ordnance"
+    },
+    {
+      "id": "4621340b-129a-43e5-b952-659b479d3518",
+      "name": "Go Ecommerce Integration",
+      "version": "1.0.0.187",
+      "publisher": "Global Ordnance"
+    },
+    {
+      "id": "9c55319d-f3b9-441b-9956-0a0a04decd4b",
+      "name": "Dynamic Ship: Integrated Shipping",
+      "version": "2.7.8343.1",
+      "publisher": "Insight Works"
+    },
+    {
+      "id": "06b26492-dfb3-47cd-a063-c3ba1ac3c746",
+      "name": "ATF Compliance",
+      "version": "1.0.0.40",
+      "publisher": "Global Ordnance"
+    }
+  ],
+  "idRanges": [
+    {
+      "from": 50700,
+      "to": 50749
+    }
+  ],
+  "build": {
+    "by": "AL Language Extension,15.0.1433841"
+  }
+}

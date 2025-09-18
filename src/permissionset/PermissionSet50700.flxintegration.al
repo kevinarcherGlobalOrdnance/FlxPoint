@@ -1,0 +1,35 @@
+permissionset 50700 flxintegration
+{
+    Assignable = true;
+    Caption = 'flxintegration', MaxLength = 30;
+    Permissions = table "FlxPoint Fulfillment Req Line"=X,
+        tabledata "FlxPoint Fulfillment Req Line"=RMID,
+        table "FlxPoint Setup"=X,
+        tabledata "FlxPoint Setup"=RMID,
+        table "BigCommerce Setup"=X,
+        tabledata "BigCommerce Setup"=RMID,
+        table "FlxPoint Fulfillment Req"=X,
+        tabledata "FlxPoint Fulfillment Req"=RMID,
+        table "FlxPoint Inventory"=X,
+        tabledata "FlxPoint Inventory"=RMID,
+        page "FlxPoint Fulfillment Req Card"=X,
+        page "BigCommerce Setup"=X,
+        page "FlxPoint Fulfillment Req Lines"=X,
+        page "FlxPoint Role Center"=X,
+        page "FlxPoint Activities"=X,
+        page "Headline RC FlxPoint"=X,
+        page "FlxPoint Inventory Card"=X,
+        page "FlxPoint Fulfillment Req List"=X,
+        page "FlxPoint Setup"=X,
+        page "FlxPoint Inventory"=X,
+        report CopyWebEnabled=X,
+        codeunit "FlxPoint API"=X,
+        codeunit "FlxPoint Fulfillment"=X,
+        codeunit flxpointeventsubscribers=X,
+        codeunit "BigCommerce API"=X,
+        codeunit "FlxPoint Inventory Sync"=X,
+        codeunit "FlxPoint Create Sales Order"=X,
+        codeunit "FlxPoint Ack Fulfillment"=X,
+        codeunit "FlxPoint Create Shipment"=X,
+        codeunit "FlxPoint Sales Order Events"=X;
+}
