@@ -3,7 +3,7 @@
   "name": "FlxPoint",
   "publisher": "Global Ordnance",
   "description": "FlxPoint Integration Framework",
-  "version": "1.0.0.36",
+  "version": "1.0.0.39",
   "url": "https://www.gloablordnance.com",
   "runtime": "15.0",
   "target": "Cloud",

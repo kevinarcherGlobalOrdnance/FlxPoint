@@ -90,7 +90,7 @@ codeunit 50713 "FlxPoint Create Inventory"
         RequestMessage.SetRequestUri('https://api.flxpoint.com/v2/inventory/variants?sku=' + ReferenceNo);
         RequestMessage.GetHeaders(RequestHeaders);
         RequestHeaders.Add('Accept', 'application/json');
-        RequestHeaders.Add('Authorization', 'Bearer ' + FlxPointSetup."API Key");
+        RequestHeaders.Add('X-Api-Token', FlxPointSetup."API Key");
 
         // Send request
         if not Client.Send(RequestMessage, ResponseMessage) then begin
@@ -164,7 +164,7 @@ codeunit 50713 "FlxPoint Create Inventory"
         RequestMessage.SetRequestUri('https://api.flxpoint.com/v2/inventory');
         RequestMessage.GetHeaders(RequestHeaders);
         RequestHeaders.Add('Accept', 'application/json');
-        RequestHeaders.Add('Authorization', 'Bearer ' + FlxPointSetup."API Key");
+        RequestHeaders.Add('X-Api-Token', FlxPointSetup."API Key");
 
         // Setup content
         HttpContent.WriteFrom(JsonText);
@@ -250,6 +250,12 @@ codeunit 50713 "FlxPoint Create Inventory"
             CustomFieldObject.Add('value', Format(Item."Unit Price"));
             CustomFieldsArray.Add(CustomFieldObject);
         end;
+
+        // Add GOPRICE custom field with value 1.99
+        Clear(CustomFieldObject);
+        CustomFieldObject.Add('name', 'GOPRICE');
+        CustomFieldObject.Add('value', '1.99');
+        CustomFieldsArray.Add(CustomFieldObject);
 
         if CustomFieldsArray.Count > 0 then
             JsonObject.Add('customFields', CustomFieldsArray);

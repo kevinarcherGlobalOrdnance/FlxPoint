@@ -12,12 +12,14 @@ page 50700 "FlxPoint Setup"
         {
             group(General)
             {
-                field("API Key"; Rec."API Key")
+                Caption = 'General';
+
+                field(APIKey; Rec."API Key")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the API Key for FlxPoint integration.';
                 }
-                field("API Base URL"; Rec."API Base URL")
+                field(APIBaseURL; Rec."API Base URL")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the base URL for FlxPoint API.';
@@ -27,17 +29,17 @@ page 50700 "FlxPoint Setup"
                     ApplicationArea = All;
                     ToolTip = 'Specifies whether the FlxPoint integration is enabled.';
                 }
-                field("Price List Code"; Rec."Price List Code")
+                field(PriceListCode; Rec."Price List Code")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the price list code for FlxPoint integration.';
                 }
-                field("Customer Template"; Rec."Customer Template")
+                field(CustomerTemplate; Rec."Customer Template")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the customer template to use when creating new customers.';
                 }
-                field("Order No Series Code"; Rec."Order No Series Code")
+                field(OrderNoSeriesCode; Rec."Order No Series Code")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the order no series code for FlxPoint integration.';
@@ -45,69 +47,64 @@ page 50700 "FlxPoint Setup"
             }
         }
     }
+
     actions
     {
         area(Processing)
         {
-            action(TestCreateSalesOrder)
+            action(TestConnection)
+            {
+                ApplicationArea = All;
+                Image = TestReport;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                Caption = 'Test API Connection';
+                ToolTip = 'Tests the connection to FlxPoint API with current settings.';
+
+                trigger OnAction()
+                begin
+                    if not Rec.Enabled then begin
+                        Message('FlxPoint integration is not enabled. Please enable it first.');
+                        exit;
+                    end;
+                    if Rec."API Key" = '' then begin
+                        Message('API Key is required. Please enter your FlxPoint API key.');
+                        exit;
+                    end;
+                    Message('Connection test completed. Check the status information for results.');
+                end;
+            }
+            action(CreateInventory)
             {
                 ApplicationArea = All;
                 Image = CreateDocument;
                 Promoted = true;
                 PromotedCategory = Process;
                 PromotedIsBig = true;
-                Caption = 'Test Create Sales Order';
-                ToolTip = 'Tests creating a sales order from a fulfillment request.';
+                Caption = 'Create Inventory Items';
+                ToolTip = 'Process FlxPoint enabled items and create them in FlxPoint inventory.';
 
                 trigger OnAction()
                 var
-                    FlxPointFulfillmentReq: Record "FlxPoint Fulfillment Req";
-                    FlxPointCreateSalesOrder: Codeunit "FlxPoint Create Sales Order";
+                    FlxPointCreateInventory: Codeunit "FlxPoint Create Inventory";
+                    ConfirmMsg: Label 'This will process all FlxPoint enabled items and create them in FlxPoint inventory. Do you want to continue?';
                 begin
-                    if not Rec.Enabled then Error('FlxPoint integration is not enabled.');
-                    if Rec."Customer Template" = '' then Error('Please specify a Customer Template first.');
-                    // Find first unprocessed fulfillment request
-                    FlxPointFulfillmentReq.SetRange("Sales Order Status", FlxPointFulfillmentReq."Sales Order Status"::"Not Created");
-                    if not FlxPointFulfillmentReq.FindFirst() then Error('No unprocessed fulfillment requests found.');
-                    FlxPointCreateSalesOrder.Run();
-                    Message('Sales order creation completed. Check the fulfillment request for status.');
-                end;
-            }
-            action(TestCreateInventoryItem)
-            {
-                ApplicationArea = All;
-                Image = CreateDocument;
-                Promoted = true;
-                PromotedCategory = Process;
-                Caption = 'Test Create Inventory Item';
-                ToolTip = 'Tests creating an inventory item from a product.';
+                    if not Rec.Enabled then begin
+                        Message('FlxPoint integration is not enabled. Please enable it first.');
+                        exit;
+                    end;
+                    if Rec."API Key" = '' then begin
+                        Message('API Key is required. Please enter your FlxPoint API key.');
+                        exit;
+                    end;
+                    if not Confirm(ConfirmMsg) then
+                        exit;
 
-                trigger OnAction()
-                var
-                    FlxPointCreateInventoryItem: Codeunit "FlxPoint Create Inventory";
-                begin
-                    FlxPointCreateInventoryItem.ProcessFlxPointEnabledItems();
-                end;
-            }
-            action(SetFlxPointApiConnection)
-            {
-                ApplicationArea = All;
-                Image = CreateDocument;
-                Promoted = true;
-                PromotedCategory = Process;
-            }
-            action(TestCreateShipment)
-            {
-                ApplicationArea = All;
-                Image = CreateDocument;
-                Promoted = true;
-                PromotedCategory = Process;
-
-                trigger OnAction()
-                var
-                    FlxPointCreateShipment: Codeunit "FlxPoint Create Shipment";
-                begin
-                    FlxPointCreateShipment.CreateShipment('11318928', '289660835384', 'FEDEXFA', '2DAY', 20250612D);
+                    if FlxPointCreateInventory.ProcessFlxPointEnabledItems() then
+                        Message('Inventory items have been successfully created in FlxPoint.')
+                    else
+                        Message('Some errors occurred while creating inventory items. Check the event log for details.');
                 end;
             }
         }
