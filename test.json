@@ -1,0 +1,169 @@
+[
+    {
+        "sku": "850003223063",
+        "title": "Global Ordnance Magazine Glock type 33rd 9MM Black",
+        "description": "",
+        "upc": "850003223063",
+        "requiresFfl": false,
+        "allowBackorders": true,
+        "archived": false,
+        "customFields": [
+            {
+                "name": "GOPRICE",
+                "value": "1.99"
+            }
+        ],
+        "variants": [
+            {
+                "sku": "850003223063",
+                "title": "Global Ordnance Magazine Glock type 33rd 9MM Black",
+                "description": "",
+                "upc": "850003223063",
+                "requiresFfl": false,
+                "allowBackorders": true,
+                "archived": false
+            }
+        ]
+    }
+]
+
+
+'[
+    {
+        "sku": "850003223063",
+        "title": "Global Ordnance Magazine Glock type 33rd 9MM Black",
+        "description": "",
+        "upc": "850003223063",
+        "requiresFfl": false,
+        "allowBackorders": true,
+        "archived": false,
+        "customFields": [
+            {
+                "name": "GOPRICE",
+                "value": "15.99"
+            }
+        ],
+        "variants": [
+            {
+                "sku": "850003223063",
+                "title": "Global Ordnance Magazine Glock type 33rd 9MM Black",
+                "description": "",
+                "upc": "850003223063",
+                "requiresFfl": false,
+                "allowBackorders": true,
+                "archived": false
+            }
+        ]
+    }
+]'
+
+'[
+    {
+        "id": 857599084,
+        "sku": "850003223063",
+        "success": true,
+        "result": "unchanged",
+        "parentOptionsResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "parentImagesResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "parentCustomFieldsResult": {
+            "saved": 1,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "parentAttributesResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "variants": [
+            {
+                "id": 23584675897,
+                "sku": "850003223063",
+                "result": "changed",
+                "variantOptionsResult": {
+                    "saved": 0,
+                    "unchanged": 0,
+                    "deleted": 0
+                },
+                "variantImagesResult": {
+                    "saved": 0,
+                    "unchanged": 0,
+                    "deleted": 0
+                },
+                "variantCustomFieldsResult": {
+                    "saved": 0,
+                    "unchanged": 0,
+                    "deleted": 0
+                },
+                "success": true,
+                "errors": null
+            }
+        ],
+        "errors": null
+    }
+]'
+
+'[
+    {
+        "id": 857599084,
+        "sku": "850003223063",
+        "success": true,
+        "result": "unchanged",
+        "parentOptionsResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "parentImagesResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "parentCustomFieldsResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 1
+        },
+        "parentAttributesResult": {
+            "saved": 0,
+            "unchanged": 0,
+            "deleted": 0
+        },
+        "variants": [
+            {
+                "id": 23584675897,
+                "sku": "850003223063",
+                "result": "changed",
+                "variantOptionsResult": {
+                    "saved": 0,
+                    "unchanged": 0,
+                    "deleted": 0
+                },
+                "variantImagesResult": {
+                    "saved": 0,
+                    "unchanged": 0,
+                    "deleted": 0
+                },
+                "variantCustomFieldsResult": {
+                    "saved": 0,
+                    "unchanged": 0,
+                    "deleted": 0
+                },
+                "success": true,
+                "errors": null
+            }
+        ],
+        "errors": null
+    }
+]'
+
+
+
