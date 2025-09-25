@@ -26,7 +26,6 @@ codeunit 50713 "FlxPoint Create Inventory"
 
         // Filter items that are FlxPoint enabled
         Item.SetRange("FlxPoint Enabled", true);
-        Item.SetRange("No.", 'A000003955');
         if not Item.FindSet() then begin
             Session.LogMessage('FlxPoint-CreateInv-0004', 'No FlxPoint enabled items found', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Operation', 'NoItemsFound');
             exit(true);
