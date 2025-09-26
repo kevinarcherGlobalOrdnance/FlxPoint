@@ -112,7 +112,7 @@ Items must have:
     "description": "Item Description",
     "upc": "UPC_CODE",
     "requiresFfl": false,
-    "allowBackorders": true,
+    "allowBackorders": false,
     "archived": false,
     "customFields": [...],
     "variants": [...]
