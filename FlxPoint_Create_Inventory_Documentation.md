@@ -58,7 +58,7 @@ The FlxPoint Create Inventory codeunit (`Cod50713`) is responsible for synchroni
   "description": "Item Description 2",
   "upc": "ITEM_REFERENCE_NO",
   "requiresFfl": false,
-  "allowBackorders": true,
+  "allowBackorders": false,
   "archived": false,
   "customFields": [
     {
@@ -73,7 +73,7 @@ The FlxPoint Create Inventory codeunit (`Cod50713`) is responsible for synchroni
       "description": "Item Description 2",
       "upc": "ITEM_REFERENCE_NO",
       "requiresFfl": false,
-      "allowBackorders": true,
+      "allowBackorders": false,
       "archived": false,
       "customFields": [...]
     }
