@@ -376,7 +376,7 @@ codeunit 50713 "FlxPoint Create Inventory"
         InventoryItemObject.Add('description', Item."Description 2");
         InventoryItemObject.Add('upc', ItemReference."Reference No.");
         InventoryItemObject.Add('requiresFfl', false);
-        InventoryItemObject.Add('allowBackorders', true);
+        InventoryItemObject.Add('allowBackorders', false);
         InventoryItemObject.Add('archived', false);
 
         // Add custom fields for item
@@ -407,7 +407,7 @@ codeunit 50713 "FlxPoint Create Inventory"
         VariantJsonObject.Add('description', Item."Description 2");
         VariantJsonObject.Add('upc', ItemReference."Reference No.");
         VariantJsonObject.Add('requiresFfl', false);
-        VariantJsonObject.Add('allowBackorders', true);
+        VariantJsonObject.Add('allowBackorders', false);
         VariantJsonObject.Add('archived', false);
 
         VariantsArray.Add(VariantJsonObject);
