@@ -385,7 +385,7 @@ codeunit 50713 "FlxPoint Create Inventory"
         // Add item number as custom field
         Clear(CustomFieldObject);
 
-        // Add GOPRICE custom field with value 1.99
+        // Add GOPRICE custom field with value 1.99 for FlxPoitn Custom Field
         Clear(CustomFieldObject);
         FlxPointSetup.Get('DEFAULT');
         pricelistline.SETRANGE(PriceListLine."Price List Code", FlxPointSetup."Price List Code");
