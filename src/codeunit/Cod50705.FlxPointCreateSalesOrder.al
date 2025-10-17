@@ -219,7 +219,7 @@ codeunit 50705 "FlxPoint Create Sales Order"
         end;
         // Try to find by name and address
         Customer.SetRange(Name, FulfillmentRequest."Shipping First Name" + ' ' + FulfillmentRequest."Shipping Last Name");
-        Customer.SetRange("Ecommerce Customer", true);
+        Customer.SetRange("Ecommerce Customer 2", true);
         Customer.SetRange("Phone No.", FulfillmentRequest."Shipping Phone");
         Customer.SetRange(Address, FulfillmentRequest."Shipping Address 1");
         Customer.SetRange("Post Code", FulfillmentRequest."Shipping Postal Code");
@@ -245,7 +245,7 @@ codeunit 50705 "FlxPoint Create Sales Order"
         Customer.County := FulfillmentRequest."Shipping State";
         Customer.City := FulfillmentRequest."Shipping City";
         Customer."Phone No." := FulfillmentRequest."Shipping Phone";
-        Customer."Ecommerce Customer" := true;
+        Customer."Ecommerce Customer 2" := true;
         Customer."Tax Area Code" := 'AVATAX';
         Customer."Contact Type" := Customer."Contact Type"::Person;
         Customer.Contact := FulfillmentRequest."Shipping First Name" + ' ' + FulfillmentRequest."Shipping Last Name";

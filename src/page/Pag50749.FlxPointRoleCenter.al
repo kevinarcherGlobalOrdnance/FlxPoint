@@ -17,10 +17,7 @@ page 50749 "FlxPoint Role Center"
             {
                 ApplicationArea = All;
             }
-            part(FlxPointFulfillmentReqs; "FlxPoint Fulfillment Req List")
-            {
-                ApplicationArea = All;
-            }
+
         }
     }
     actions
