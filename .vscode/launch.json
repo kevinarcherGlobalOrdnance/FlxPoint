@@ -6,7 +6,7 @@
             "request": "launch",
             "type": "al",
             "environmentType": "Sandbox",
-            "environmentName": "KevDev",
+            "environmentName": "SMDEV",
             "startupObjectId": 50748,
             "startupObjectType": "Page",
             "breakOnError": "All",
