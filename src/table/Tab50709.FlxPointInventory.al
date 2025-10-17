@@ -282,6 +282,14 @@ table 50709 "FlxPoint Inventory"
             Caption = 'BigCommerce Price';
             DataClassification = CustomerContent;
         }
+        //create a lookup flowfield to the item card using the "Business Central Item No." field to show the flxpoint enabled field
+        field(56; "FlxPoint Enabled"; Boolean)
+        {
+            Caption = 'FlxPoint Enabled';
+            FieldClass = FlowField;
+            CalcFormula = lookup(Item."FlxPoint Enabled" where("No." = field("Business Central Item No.")));
+
+        }
     }
     keys
     {

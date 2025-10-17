@@ -12,7 +12,7 @@ tableextension 50700 "FlxPoint Item Ext" extends Item
                 if not Rec."FlxPoint Enabled" then begin
                     Rec."FlxPoint Last Sync" := 0DT;
                 end;
-                TestField(MAP);
+                TestField(MAP2);
                 flxpointsetup.Get('DEFAULT');
                 priceline.SetRange("Price List Code", flxpointsetup."Price List Code");
                 priceline.SetRange("Item Reference", itemreference."Reference No.");
@@ -26,6 +26,12 @@ tableextension 50700 "FlxPoint Item Ext" extends Item
         field(50702; "FlxPoint Last Sync"; DateTime)
         {
             Caption = 'FlxPoint Last Sync';
+            DataClassification = CustomerContent;
+            Editable = false;
+        }
+        field(50703; "MAP2"; Decimal)
+        {
+            Caption = 'MAP';
             DataClassification = CustomerContent;
             Editable = false;
         }

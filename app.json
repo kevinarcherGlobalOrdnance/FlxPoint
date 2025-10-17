@@ -3,7 +3,7 @@
   "name": "FlxPoint",
   "publisher": "Global Ordnance",
   "description": "FlxPoint Integration Framework",
-  "version": "1.0.0.42",
+  "version": "1.0.0.49",
   "url": "https://www.gloablordnance.com",
   "runtime": "15.0",
   "target": "Cloud",
@@ -26,12 +26,7 @@
       "version": "1.0.1.204",
       "publisher": "Global Ordnance"
     },
-    {
-      "id": "4621340b-129a-43e5-b952-659b479d3518",
-      "name": "Go Ecommerce Integration",
-      "version": "1.0.0.187",
-      "publisher": "Global Ordnance"
-    },
+ 
     {
       "id": "9c55319d-f3b9-441b-9956-0a0a04decd4b",
       "name": "Dynamic Ship: Integrated Shipping",

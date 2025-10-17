@@ -5,37 +5,29 @@ codeunit 50713 "FlxPoint Create Inventory"
         Item: Record Item;
         ItemReference: Record "Item Reference";
         FlxPointSetup: Record "FlxPoint Setup";
-        TelemetryDimensions: Dictionary of [Text, Text];
         ProcessedCount: Integer;
         ErrorCount: Integer;
         BatchSize: Integer;
         CurrentBatch: Integer;
         TotalItems: Integer;
     begin
-        Session.LogMessage('FlxPoint-CreateInv-0001', 'Processing FlxPoint Enabled Items Started', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Operation', 'StartProcess');
-
-        if not FlxPointSetup.Get('DEFAULT') then begin
-            Session.LogMessage('FlxPoint-CreateInv-0002', 'FlxPoint Setup not found', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'ErrorType', 'SetupMissing');
+        if not FlxPointSetup.Get('DEFAULT') then
             exit(false);
-        end;
 
-        if not FlxPointSetup.Enabled then begin
-            Session.LogMessage('FlxPoint-CreateInv-0003', 'FlxPoint integration is disabled', Verbosity::Warning, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'ErrorType', 'IntegrationDisabled');
+        if not FlxPointSetup.Enabled then
             exit(false);
-        end;
 
         // Filter items that are FlxPoint enabled
         Item.SetRange("FlxPoint Enabled", true);
-        if not Item.FindSet() then begin
-            Session.LogMessage('FlxPoint-CreateInv-0004', 'No FlxPoint enabled items found', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Operation', 'NoItemsFound');
+        if not Item.FindSet() then
             exit(true);
-        end;
 
         // Count total items for progress tracking
         TotalItems := 0;
         repeat
             ItemReference.SetRange("Item No.", Item."No.");
             ItemReference.SetRange("Reference Type", ItemReference."Reference Type"::"Bar Code");
+            ItemReference.SetFilter("Unit of Measure", '<>%1', 'ROUNDS');
             TotalItems += ItemReference.Count();
         until Item.Next() = 0;
 
@@ -47,13 +39,6 @@ codeunit 50713 "FlxPoint Create Inventory"
         if ProcessAllItemsInBatches(Item, ItemReference, BatchSize, ProcessedCount, ErrorCount, CurrentBatch) then begin
             // Success
         end;
-
-        Clear(TelemetryDimensions);
-        TelemetryDimensions.Add('ProcessedCount', Format(ProcessedCount));
-        TelemetryDimensions.Add('ErrorCount', Format(ErrorCount));
-        TelemetryDimensions.Add('TotalItems', Format(TotalItems));
-        TelemetryDimensions.Add('BatchesProcessed', Format(CurrentBatch));
-        Session.LogMessage('FlxPoint-CreateInv-0005', 'Processing FlxPoint Enabled Items Completed', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
 
         exit(ErrorCount = 0);
     end;
@@ -70,7 +55,6 @@ codeunit 50713 "FlxPoint Create Inventory"
         ResponseText: Text;
         HttpContent: HttpContent;
         JsonText: Text;
-        TelemetryDimensions: Dictionary of [Text, Text];
         ItemsInCurrentBatch: Integer;
     begin
         if not FlxPointSetup.Get('DEFAULT') then
@@ -82,6 +66,7 @@ codeunit 50713 "FlxPoint Create Inventory"
             repeat
                 ItemReference.SetRange("Item No.", Item."No.");
                 ItemReference.SetRange("Reference Type", ItemReference."Reference Type"::"Bar Code");
+                ItemReference.SetFilter("Unit of Measure", '<>%1', 'ROUNDS');
                 if ItemReference.FindSet() then begin
                     repeat
                         // Check if we need to start a new batch
@@ -122,17 +107,10 @@ codeunit 50713 "FlxPoint Create Inventory"
 
     local procedure SendBatchToFlxPoint(var BatchJsonArray: JsonArray; FlxPointSetup: Record "FlxPoint Setup"; var Client: HttpClient; var RequestMessage: HttpRequestMessage; var ResponseMessage: HttpResponseMessage; var RequestHeaders: HttpHeaders; var ContentHeaders: HttpHeaders; var ResponseText: Text; var HttpContent: HttpContent; var JsonText: Text; BatchNumber: Integer; ItemsInBatch: Integer): Boolean
     var
-        TelemetryDimensions: Dictionary of [Text, Text];
         ResponseJsonArray: JsonArray;
     begin
         // Convert to text for sending
         BatchJsonArray.WriteTo(JsonText);
-
-        // Log the batch request
-        Clear(TelemetryDimensions);
-        TelemetryDimensions.Add('BatchNumber', Format(BatchNumber));
-        TelemetryDimensions.Add('ItemsInBatch', Format(ItemsInBatch));
-        Session.LogMessage('FlxPoint-CreateInv-0016', 'Processing Batch', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
 
         // Setup HTTP request
         Clear(RequestMessage);
@@ -150,22 +128,12 @@ codeunit 50713 "FlxPoint Create Inventory"
         RequestMessage.Content := HttpContent;
 
         // Send request
-        if not Client.Send(RequestMessage, ResponseMessage) then begin
-            Clear(TelemetryDimensions);
-            TelemetryDimensions.Add('BatchNumber', Format(BatchNumber));
-            TelemetryDimensions.Add('Error', 'RequestFailed');
-            Session.LogMessage('FlxPoint-CreateInv-0017', 'Failed to send batch request to FlxPoint', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
+        if not Client.Send(RequestMessage, ResponseMessage) then
             exit(false);
-        end;
 
         // Check response
         if not ResponseMessage.IsSuccessStatusCode() then begin
             ResponseMessage.Content().ReadAs(ResponseText);
-            Clear(TelemetryDimensions);
-            TelemetryDimensions.Add('BatchNumber', Format(BatchNumber));
-            TelemetryDimensions.Add('StatusCode', Format(ResponseMessage.HttpStatusCode()));
-            TelemetryDimensions.Add('Response', ResponseText);
-            Session.LogMessage('FlxPoint-CreateInv-0018', 'Batch Processing Failed: API Error Response', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
             exit(false);
         end;
 
@@ -177,10 +145,6 @@ codeunit 50713 "FlxPoint Create Inventory"
             ProcessBatchResponse(ResponseJsonArray, BatchNumber);
         end;
 
-        Clear(TelemetryDimensions);
-        TelemetryDimensions.Add('BatchNumber', Format(BatchNumber));
-        TelemetryDimensions.Add('ItemsInBatch', Format(ItemsInBatch));
-        Session.LogMessage('FlxPoint-CreateInv-0019', 'Batch Processing Completed Successfully', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
         exit(true);
     end;
 
@@ -188,7 +152,6 @@ codeunit 50713 "FlxPoint Create Inventory"
     local procedure ProcessBatchResponse(JsonArray: JsonArray; BatchNumber: Integer)
     var
         JsonToken: JsonToken;
-        TelemetryDimensions: Dictionary of [Text, Text];
         CreatedItemId: Text;
         JsonObject: JsonObject;
         ItemIndex: Integer;
@@ -200,11 +163,6 @@ codeunit 50713 "FlxPoint Create Inventory"
                     JsonObject := JsonToken.AsObject();
                     if JsonObject.Get('id', JsonToken) then begin
                         CreatedItemId := JsonToken.AsValue().AsText();
-                        Clear(TelemetryDimensions);
-                        TelemetryDimensions.Add('BatchNumber', Format(BatchNumber));
-                        TelemetryDimensions.Add('ItemIndex', Format(ItemIndex));
-                        TelemetryDimensions.Add('InventoryItemId', CreatedItemId);
-                        Session.LogMessage('FlxPoint-CreateInv-0020', 'Inventory Item Created in Batch', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
                     end;
                 end;
             end;
@@ -228,7 +186,6 @@ codeunit 50713 "FlxPoint Create Inventory"
         JsonObject: JsonObject;
         JsonArray: JsonArray;
         JsonToken: JsonToken;
-        TelemetryDimensions: Dictionary of [Text, Text];
     begin
         if not FlxPointSetup.Get('DEFAULT') then
             exit(false);
@@ -242,22 +199,12 @@ codeunit 50713 "FlxPoint Create Inventory"
         RequestHeaders.Add('X-Api-Token', FlxPointSetup."API Key");
 
         // Send request
-        if not Client.Send(RequestMessage, ResponseMessage) then begin
-            Clear(TelemetryDimensions);
-            TelemetryDimensions.Add('ReferenceNo', ReferenceNo);
-            TelemetryDimensions.Add('Error', 'RequestFailed');
-            Session.LogMessage('FlxPoint-CreateInv-0007', 'Failed to check if item exists in FlxPoint', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
+        if not Client.Send(RequestMessage, ResponseMessage) then
             exit(false);
-        end;
 
         // Check response
         if not ResponseMessage.IsSuccessStatusCode() then begin
             ResponseMessage.Content().ReadAs(ResponseText);
-            Clear(TelemetryDimensions);
-            TelemetryDimensions.Add('ReferenceNo', ReferenceNo);
-            TelemetryDimensions.Add('StatusCode', Format(ResponseMessage.HttpStatusCode()));
-            TelemetryDimensions.Add('Response', ResponseText);
-            Session.LogMessage('FlxPoint-CreateInv-0008', 'Error checking if item exists in FlxPoint', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
             exit(false);
         end;
 
@@ -287,25 +234,16 @@ codeunit 50713 "FlxPoint Create Inventory"
         JsonArray: JsonArray;
         HttpContent: HttpContent;
         JsonText: Text;
-        TelemetryDimensions: Dictionary of [Text, Text];
     begin
-        if not FlxPointSetup.Get('DEFAULT') then begin
-            Session.LogMessage('FlxPoint-CreateInv-0009', 'FlxPoint Setup not found', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'ErrorType', 'SetupMissing');
+        if not FlxPointSetup.Get('DEFAULT') then
             exit(false);
-        end;
 
         // Build the JSON request body as an array
         Clear(JsonArray);
         BuildInventoryItemJson(JsonArray, Item, ItemReference);
 
-        // Convert to text for logging and sending
+        // Convert to text for sending
         JsonArray.WriteTo(JsonText);
-
-        // Log the request content for debugging
-        Clear(TelemetryDimensions);
-        TelemetryDimensions.Add('ItemNo', Item."No.");
-        TelemetryDimensions.Add('ReferenceNo', ItemReference."Reference No.");
-        Session.LogMessage('FlxPoint-CreateInv-0010', 'Sending create inventory request: ' + JsonText, Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
 
         // Setup HTTP request
         Clear(RequestMessage);
@@ -323,24 +261,12 @@ codeunit 50713 "FlxPoint Create Inventory"
         RequestMessage.Content := HttpContent;
 
         // Send request
-        if not Client.Send(RequestMessage, ResponseMessage) then begin
-            Clear(TelemetryDimensions);
-            TelemetryDimensions.Add('ItemNo', Item."No.");
-            TelemetryDimensions.Add('ReferenceNo', ItemReference."Reference No.");
-            TelemetryDimensions.Add('Error', 'RequestFailed');
-            Session.LogMessage('FlxPoint-CreateInv-0011', 'Create Inventory Failed: API Request Failed', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
+        if not Client.Send(RequestMessage, ResponseMessage) then
             exit(false);
-        end;
 
         // Check response
         if not ResponseMessage.IsSuccessStatusCode() then begin
             ResponseMessage.Content().ReadAs(ResponseText);
-            Clear(TelemetryDimensions);
-            TelemetryDimensions.Add('ItemNo', Item."No.");
-            TelemetryDimensions.Add('ReferenceNo', ItemReference."Reference No.");
-            TelemetryDimensions.Add('StatusCode', Format(ResponseMessage.HttpStatusCode()));
-            TelemetryDimensions.Add('Response', ResponseText);
-            Session.LogMessage('FlxPoint-CreateInv-0012', 'Create Inventory Failed: API Error Response', Verbosity::Error, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
             exit(false);
         end;
 
@@ -352,10 +278,6 @@ codeunit 50713 "FlxPoint Create Inventory"
             ProcessCreateResponse(JsonArray, Item, ItemReference);
         end;
 
-        Clear(TelemetryDimensions);
-        TelemetryDimensions.Add('ItemNo', Item."No.");
-        TelemetryDimensions.Add('ReferenceNo', ItemReference."Reference No.");
-        Session.LogMessage('FlxPoint-CreateInv-0013', 'Create Inventory Item Process Completed Successfully', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
         exit(true);
     end;
 
@@ -421,7 +343,6 @@ codeunit 50713 "FlxPoint Create Inventory"
     local procedure ProcessCreateResponse(JsonArray: JsonArray; Item: Record Item; ItemReference: Record "Item Reference")
     var
         JsonToken: JsonToken;
-        TelemetryDimensions: Dictionary of [Text, Text];
         CreatedItemId: Text;
         JsonObject: JsonObject;
     begin
@@ -432,11 +353,6 @@ codeunit 50713 "FlxPoint Create Inventory"
                 JsonObject := JsonToken.AsObject();
                 if JsonObject.Get('id', JsonToken) then begin
                     CreatedItemId := JsonToken.AsValue().AsText();
-                    Clear(TelemetryDimensions);
-                    TelemetryDimensions.Add('InventoryItemId', CreatedItemId);
-                    TelemetryDimensions.Add('ItemNo', Item."No.");
-                    TelemetryDimensions.Add('ReferenceNo', ItemReference."Reference No.");
-                    Session.LogMessage('FlxPoint-CreateInv-0014', 'Inventory Item Created Successfully', Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, TelemetryDimensions);
                 end;
             end;
         end;
