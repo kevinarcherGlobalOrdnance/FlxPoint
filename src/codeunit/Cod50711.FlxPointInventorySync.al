@@ -256,7 +256,7 @@ codeunit 50711 "FlxPoint Inventory Sync"
             If FlxPointInventory."Business Central UOM" = Item."Base Unit of Measure" then FlxPointInventory."Business Central Cost":=Item."Unit Cost"
             else
                 FlxPointInventory."Business Central Cost":=Item."Unit Cost" * UOMMgt.GetQtyPerUnitOfMeasure(Item, FlxPointInventory."Business Central UOM");
-            FlxPointInventory.MAP:=Item.MAP;
+            FlxPointInventory.MAP:=Item.MAP2;
             PriceListLine.Setrange(PriceListLine."Price List Code", FlxPointSetup."Price List Code");
             PriceListLine.Setrange("Item Reference", ItemReference."Reference No.");
             If PriceListLine.FindFirst()then FlxPointInventory."Business Central Price":=PriceListLine."Unit Price";
