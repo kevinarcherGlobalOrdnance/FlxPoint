@@ -33,7 +33,7 @@ tableextension 50700 "FlxPoint Item Ext" extends Item
         {
             Caption = 'MAP';
             DataClassification = CustomerContent;
-            Editable = false;
+            Editable = true;
         }
     }
     var

@@ -448,6 +448,7 @@ codeunit 50711 "FlxPoint Inventory Sync"
         ItemRec: record Item;
         AbleToMakeQty: Decimal;
     begin
+        ItemRec.CalcFields(Inventory, "Qty. on Sales Order");
         // Generate BOM tree to calculate component availability
         CalcBOMTree.SetShowTotalAvailability(true);
         If ItemRec.Get(ItemNo) then begin

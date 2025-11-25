@@ -67,6 +67,7 @@ codeunit 50713 "FlxPoint Create Inventory"
                 ItemReference.SetRange("Item No.", Item."No.");
                 ItemReference.SetRange("Reference Type", ItemReference."Reference Type"::"Bar Code");
                 ItemReference.SetFilter("Unit of Measure", '<>%1', 'ROUNDS');
+                ItemReference.SetFilter("Barcode Type", '<>%1', ItemReference."Barcode Type"::MPN);
                 if ItemReference.FindSet() then begin
                     repeat
                         // Check if we need to start a new batch
@@ -312,8 +313,8 @@ codeunit 50713 "FlxPoint Create Inventory"
         FlxPointSetup.Get('DEFAULT');
         pricelistline.SETRANGE(PriceListLine."Price List Code", FlxPointSetup."Price List Code");
         pricelistline.SetRange("Item Reference", ItemReference."Reference No.");
-        CustomFieldObject.Add('name', 'GOPRICE');
-        IF pricelistline.FindFirst() then
+        CustomFieldObject.Add('name', 'GOPRICE'); 
+       IF pricelistline.FindFirst() then
             CustomFieldObject.Add('value', Format(pricelistline."Unit Price")) else
             CustomFieldObject.Add('value', '1.99');
         CustomFieldsArray.Add(CustomFieldObject);

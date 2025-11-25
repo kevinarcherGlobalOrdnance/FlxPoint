@@ -3,7 +3,7 @@
   "name": "FlxPoint",
   "publisher": "Global Ordnance",
   "description": "FlxPoint Integration Framework",
-  "version": "1.0.0.49",
+  "version": "1.0.0.51",
   "url": "https://www.gloablordnance.com",
   "runtime": "15.0",
   "target": "Cloud",
@@ -11,7 +11,7 @@
   "platform": "26.0.38248.0",
   "applicationInsightsConnectionString": "InstrumentationKey=2f31ad8c-f3df-4461-9cf0-7457c73b5e44;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=d2b425d8-a948-46ca-9043-74b4f18e680b",
   "resourceExposurePolicy": {
-    "allowDebugging": true,
+    "allowDebugging": true, 
     "allowDownloadingSource": true,
     "includeSourceInSymbolFile": true,
     "applyToDevExtension": false

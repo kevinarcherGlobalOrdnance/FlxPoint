@@ -28,7 +28,7 @@ pageextension 50700 "FlxPoint Item Card Ext" extends "Item Card"
             {
                 ApplicationArea = All;
                 ToolTip = 'Specifies the MAP for this item.';
-                Editable = false;
+                Editable = true;
             }
         }
     }
