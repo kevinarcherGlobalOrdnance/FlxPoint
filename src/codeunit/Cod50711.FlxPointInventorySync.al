@@ -29,10 +29,11 @@ codeunit 50711 "FlxPoint Inventory Sync"
     /// Synchronizes inventory variants from FlxPoint API to Business Central
     /// This procedure:
     /// 1. Clears all existing FlxPoint Inventory records to ensure a fresh sync
-    /// 2. Retrieves inventory variants from FlxPoint API using pagination
-    /// 3. Processes each variant to enrich with Business Central data (inventory, pricing, costs)
-    /// 4. Matches variants to BC items using UPC codes via Item References
-    /// 5. Integrates with BigCommerce to retrieve web pricing
+    /// 2. Pre-loads all lookup data (ItemReferences, PriceListLines, Items) into dictionaries for fast access
+    /// 3. Retrieves inventory variants from FlxPoint API using pagination
+    /// 4. Processes each variant to enrich with Business Central data (inventory, pricing, costs)
+    /// 5. Matches variants to BC items using UPC codes via Item References
+    /// 6. Integrates with BigCommerce to retrieve web pricing
     /// API Endpoint: GET https://api.flxpoint.com/inventory/variants
     /// </summary>
     procedure SyncInventory()
@@ -51,6 +52,10 @@ codeunit 50711 "FlxPoint Inventory Sync"
         PageSize: Integer;
         HasMorePages: Boolean;
         TotalVariantsProcessed: Integer;
+        ItemRefDict: Dictionary of [Text, Text[20]]; // Key: UPC, Value: Item No.
+        ItemRefUOMDict: Dictionary of [Text, Code[10]]; // Key: UPC, Value: UOM
+        PriceListDict: Dictionary of [Text, Decimal]; // Key: UPC, Value: Unit Price
+        ItemTemp: Record Item temporary; // Temporary table to cache loaded items
     begin
         // Clear all existing FlxPoint inventory records for fresh sync
         FlxPointInventory.DeleteAll();
@@ -59,6 +64,11 @@ codeunit 50711 "FlxPoint Inventory Sync"
         if not FlxPointSetup.Get('DEFAULT') then begin
             exit;
         end;
+
+        // OPTIMIZATION: Pre-load all lookup data into dictionaries (eliminates N+1 queries)
+        LoadItemReferences(ItemRefDict, ItemRefUOMDict);
+        LoadPriceListLines(FlxPointSetup."Price List Code", PriceListDict);
+        LoadItems(ItemRefDict, ItemTemp);
 
         // Initialize pagination parameters
         PageSize := 100; // FlxPoint API recommended page size
@@ -101,7 +111,7 @@ codeunit 50711 "FlxPoint Inventory Sync"
             // Process each inventory variant in the current page
             foreach JsonToken in JsonArray do begin
                 JsonObject := JsonToken.AsObject();
-                ProcessInventoryVariant(JsonObject, FlxPointInventory);
+                ProcessInventoryVariant(JsonObject, FlxPointInventory, FlxPointSetup, ItemRefDict, ItemRefUOMDict, PriceListDict, ItemTemp);
                 TotalVariantsProcessed += 1;
             end;
 
@@ -111,6 +121,81 @@ codeunit 50711 "FlxPoint Inventory Sync"
             end
             else
                 Page += 1; // Move to next page
+        end;
+    end;
+
+    /// <summary>
+    /// Pre-loads all Item References into dictionaries for fast lookup
+    /// Eliminates N+1 query problem by loading all data in one query
+    /// </summary>
+    /// <param name="ItemRefDict">Dictionary keyed by UPC, returns Item No.</param>
+    /// <param name="ItemRefUOMDict">Dictionary keyed by UPC, returns Unit of Measure</param>
+    local procedure LoadItemReferences(var ItemRefDict: Dictionary of [Text, Text[20]]; var ItemRefUOMDict: Dictionary of [Text, Code[10]])
+    var
+        ItemReference: Record "Item Reference";
+    begin
+        Clear(ItemRefDict);
+        Clear(ItemRefUOMDict);
+
+        ItemReference.SetRange("Reference Type", ItemReference."Reference Type"::"Bar Code");
+        if ItemReference.FindSet() then
+            repeat
+                if (ItemReference."Reference No." <> '') and (not ItemRefDict.ContainsKey(ItemReference."Reference No.")) then begin
+                    ItemRefDict.Add(ItemReference."Reference No.", ItemReference."Item No.");
+                    ItemRefUOMDict.Add(ItemReference."Reference No.", ItemReference."Unit of Measure");
+                end;
+            until ItemReference.Next() = 0;
+    end;
+
+    /// <summary>
+    /// Pre-loads all Price List Lines into a dictionary for fast lookup
+    /// Eliminates N+1 query problem by loading all data in one query
+    /// </summary>
+    /// <param name="PriceListCode">Price List Code to load</param>
+    /// <param name="PriceListDict">Dictionary keyed by UPC (Item Reference), returns Unit Price</param>
+    local procedure LoadPriceListLines(PriceListCode: Code[20]; var PriceListDict: Dictionary of [Text, Decimal])
+    var
+        PriceListLine: Record "Price List Line";
+    begin
+        Clear(PriceListDict);
+
+        PriceListLine.SetRange("Price List Code", PriceListCode);
+        if PriceListLine.FindSet() then
+            repeat
+                if (PriceListLine."Item Reference" <> '') and (not PriceListDict.ContainsKey(PriceListLine."Item Reference")) then
+                    PriceListDict.Add(PriceListLine."Item Reference", PriceListLine."Unit Price");
+            until PriceListLine.Next() = 0;
+    end;
+
+    /// <summary>
+    /// Pre-loads all Items that are referenced in ItemReferences into a temporary table
+    /// Eliminates N+1 query problem by loading all items in batch
+    /// </summary>
+    /// <param name="ItemRefDict">Dictionary of Item References (to get list of Item Nos.)</param>
+    /// <param name="ItemTemp">Temporary Item table to cache loaded items</param>
+    local procedure LoadItems(var ItemRefDict: Dictionary of [Text, Text[20]]; var ItemTemp: Record Item temporary)
+    var
+        Item: Record Item;
+        ItemNo: Text[20];
+        ItemNoList: List of [Code[20]];
+        UniqueItemNo: Code[20];
+    begin
+        Clear(ItemTemp);
+        Clear(ItemNoList);
+
+        // Collect all unique item numbers
+        foreach ItemNo in ItemRefDict.Values() do begin
+            UniqueItemNo := CopyStr(ItemNo, 1, MaxStrLen(Item."No."));
+            if not ItemNoList.Contains(UniqueItemNo) then
+                ItemNoList.Add(UniqueItemNo);
+        end;
+
+        // Load all items in batch into temporary table
+        foreach UniqueItemNo in ItemNoList do begin
+            if Item.Get(UniqueItemNo) then begin
+                ItemTemp := Item;
+                ItemTemp.Insert();
+            end;
         end;
     end;
 
@@ -130,7 +215,19 @@ codeunit 50711 "FlxPoint Inventory Sync"
     /// </summary>
     /// <param name="JsonObject">JSON object containing FlxPoint variant data</param>
     /// <param name="FlxPointInventory">FlxPoint Inventory record to update (passed by reference)</param>
-    local procedure ProcessInventoryVariant(JsonObject: JsonObject; var FlxPointInventory: Record "FlxPoint Inventory")
+    /// <param name="FlxPointSetup">FlxPoint Setup record (pre-loaded to avoid repeated queries)</param>
+    /// <param name="ItemRefDict">Dictionary of Item References keyed by UPC</param>
+    /// <param name="ItemRefUOMDict">Dictionary of UOMs keyed by UPC</param>
+    /// <param name="PriceListDict">Dictionary of Prices keyed by UPC</param>
+    /// <param name="ItemTemp">Temporary table containing pre-loaded Items</param>
+    local procedure ProcessInventoryVariant(
+        JsonObject: JsonObject;
+        var FlxPointInventory: Record "FlxPoint Inventory";
+        FlxPointSetup: Record "FlxPoint Setup";
+        var ItemRefDict: Dictionary of [Text, Text[20]];
+        var ItemRefUOMDict: Dictionary of [Text, Code[10]];
+        var PriceListDict: Dictionary of [Text, Decimal];
+        var ItemTemp: Record Item temporary)
     var
         JsonToken: JsonToken;
         InventoryVariantId: Text;
@@ -138,20 +235,19 @@ codeunit 50711 "FlxPoint Inventory Sync"
         LastModifiedDate: DateTime;
         WeightUnitObj: JsonObject;
         DimensionUnitObj: JsonObject;
-        ItemReference: Record "Item Reference";
         Item: Record Item;
         BinContents: Record "Bin Content";
         TotalAvailiable: Decimal;
         TotalAvailiableBase: Decimal;
-        PriceListLine: Record "Price List Line";
         QtyOnSalesOrder: Decimal;
         TotalOnPick: Decimal;
         UOMMgt: codeunit "Unit of Measure Management";
-        FlxPointSetup: Record "FlxPoint Setup";
         IsNewRecord: Boolean;
         BigCommercePrice: Decimal;
+        ItemNo: Text[20];
+        UOM: Code[10];
+        UnitPrice: Decimal;
     begin
-        FlxPointSetup.Get('DEFAULT');
 
         // Extract required variant ID - exit if missing
         if not JsonObject.Get('id', JsonToken) then begin
@@ -261,45 +357,47 @@ codeunit 50711 "FlxPoint Inventory Sync"
         // ============================================================
         // BUSINESS CENTRAL ITEM MATCHING & ENRICHMENT
         // ============================================================
-        // Match FlxPoint variant to Business Central item using UPC barcode
-        ItemReference.SetRange("Reference Type", ItemReference."Reference Type"::"Bar Code");
-        ItemReference.SetRange("Reference No.", FlxPointInventory.UPC);
-        if ItemReference.FindFirst() then begin
-            FlxPointInventory."Business Central Item No." := ItemReference."Item No.";
-            FlxPointInventory."Business Central UOM" := ItemReference."Unit of Measure";
-        end;
+        // OPTIMIZATION: Match FlxPoint variant to Business Central item using pre-loaded dictionary
+        if (FlxPointInventory.UPC <> '') and ItemRefDict.Get(FlxPointInventory.UPC, ItemNo) then begin
+            FlxPointInventory."Business Central Item No." := CopyStr(ItemNo, 1, MaxStrLen(FlxPointInventory."Business Central Item No."));
 
-        // Enrich with Business Central data if item match found
-        IF Item.Get(FlxPointInventory."Business Central Item No.") then begin
-            // Calculate unit cost (adjust for UOM if necessary)
-            If FlxPointInventory."Business Central UOM" = Item."Base Unit of Measure" then
-                FlxPointInventory."Business Central Cost" := Item."Unit Cost"
-            else
-                FlxPointInventory."Business Central Cost" := Item."Unit Cost" * UOMMgt.GetQtyPerUnitOfMeasure(Item, FlxPointInventory."Business Central UOM");
+            // Get UOM from dictionary
+            if ItemRefUOMDict.Get(FlxPointInventory.UPC, UOM) then
+                FlxPointInventory."Business Central UOM" := UOM;
 
-            // Set MAP (Minimum Advertised Price) from item
-            FlxPointInventory.MAP := Item.MAP2;
-
-            // Retrieve selling price from price list
-            PriceListLine.Setrange(PriceListLine."Price List Code", FlxPointSetup."Price List Code");
-            PriceListLine.Setrange("Item Reference", FlxPointInventory.UPC);
-            If PriceListLine.FindFirst() then FlxPointInventory."Business Central Price" := PriceListLine."Unit Price";
-
-            // Calculate available quantity based on item type
-            If Item."Assembly BOM" then
-                // Assembly items: Calculate based on component availability
-                FlxPointInventory."Business Central QOH" := CalcAssemblyAvail(Item."No.")
-            else begin
-                IF (Item."Item Category Code" = 'AMMUNITION') OR (Item."Item Category Code" = 'MAGAZINES') then
-                    // Ammunition/Magazines: Use base UOM calculation with rounding
-                    FlxPointInventory."Business Central QOH" := CalcAmmunitionAvail(Item."No.", FlxPointInventory."Business Central UOM")
+            // OPTIMIZATION: Get Item from pre-loaded temporary table instead of database query
+            ItemTemp.SetRange("No.", FlxPointInventory."Business Central Item No.");
+            if ItemTemp.FindFirst() then begin
+                Item := ItemTemp;
+                // Calculate unit cost (adjust for UOM if necessary)
+                If FlxPointInventory."Business Central UOM" = Item."Base Unit of Measure" then
+                    FlxPointInventory."Business Central Cost" := Item."Unit Cost"
                 else
-                    // Standard items: Use bin-based availability calculation
-                    FlxPointInventory."Business Central QOH" := CalcInventory(Item."No.", FlxPointInventory."Business Central UOM");
-            end;
+                    FlxPointInventory."Business Central Cost" := Item."Unit Cost" * UOMMgt.GetQtyPerUnitOfMeasure(Item, FlxPointInventory."Business Central UOM");
 
-            // Business rule: Hide inventory if no price is set
-            If FlxPointInventory."Business Central Price" = 0 then FlxPointInventory."Business Central QOH" := 0;
+                // Set MAP (Minimum Advertised Price) from item
+                FlxPointInventory.MAP := Item.MAP2;
+
+                // OPTIMIZATION: Get price from pre-loaded dictionary instead of database query
+                if PriceListDict.Get(FlxPointInventory.UPC, UnitPrice) then
+                    FlxPointInventory."Business Central Price" := UnitPrice;
+
+                // Calculate available quantity based on item type
+                If Item."Assembly BOM" then
+                    // Assembly items: Calculate based on component availability
+                    FlxPointInventory."Business Central QOH" := CalcAssemblyAvail(Item."No.")
+                else begin
+                    IF (Item."Item Category Code" = 'AMMUNITION') OR (Item."Item Category Code" = 'MAGAZINES') then
+                        // Ammunition/Magazines: Use base UOM calculation with rounding
+                        FlxPointInventory."Business Central QOH" := CalcAmmunitionAvail(Item."No.", FlxPointInventory."Business Central UOM")
+                    else
+                        // Standard items: Use bin-based availability calculation
+                        FlxPointInventory."Business Central QOH" := CalcInventory(Item."No.", FlxPointInventory."Business Central UOM");
+                end;
+
+                // Business rule: Hide inventory if no price is set
+                If FlxPointInventory."Business Central Price" = 0 then FlxPointInventory."Business Central QOH" := 0;
+            end;
         end;
 
         // Save the enriched record
