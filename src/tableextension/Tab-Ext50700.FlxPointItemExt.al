@@ -9,17 +9,19 @@ tableextension 50700 "FlxPoint Item Ext" extends Item
 
             trigger OnValidate()
             begin
-                if not Rec."FlxPoint Enabled" then begin
-                    Rec."FlxPoint Last Sync" := 0DT;
-                end;
-                TestField(MAP2);
-                flxpointsetup.Get('DEFAULT');
-                priceline.SetRange("Price List Code", flxpointsetup."Price List Code");
-                priceline.SetRange("Item Reference", itemreference."Reference No.");
-                if not priceline.FindFirst() then error('Price list line not found for item reference %1', itemreference."Reference No.");
-                itemreference.SetRange("Item No.", Rec."No.");
-                itemreference.SetRange("Reference Type", itemreference."Reference Type"::"Bar Code");
-                if not itemreference.FindFirst() then error('Item reference not found for item %1', Rec."No.");
+                // if not Rec."FlxPoint Enabled" then begin
+                //     Rec."FlxPoint Last Sync" := 0DT;
+                // end;
+                // TestField(MAP2);
+
+                // itemreference.SetRange("Item No.", Rec."No.");
+                // itemreference.SetRange("Reference Type", itemreference."Reference Type"::"Bar Code");
+                // if not itemreference.FindFirst() then error('Item reference not found for item %1', Rec."No.");
+
+                // flxpointsetup.Get('DEFAULT');
+                // priceline.SetRange("Price List Code", flxpointsetup."Price List Code");
+                // priceline.SetRange("Item Reference", itemreference."Reference No.");
+                // if not priceline.FindFirst() then error('Price list line not found for item reference %1', itemreference."Reference No.");
 
             end;
         }

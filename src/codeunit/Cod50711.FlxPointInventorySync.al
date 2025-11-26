@@ -478,6 +478,27 @@ codeunit 50711 "FlxPoint Inventory Sync"
     procedure UpdateFlxPointInventory()
     var
         FlxPointInventory: Record "FlxPoint Inventory";
+    begin
+        // Process all FlxPoint Inventory records
+        if FlxPointInventory.FindSet() then
+            UpdateFlxPointInventoryFiltered(FlxPointInventory);
+    end;
+
+    /// <summary>
+    /// Pushes inventory updates from Business Central to FlxPoint API for filtered records (outbound sync)
+    /// This procedure:
+    /// - Iterates through the provided filtered FlxPoint Inventory recordset
+    /// - Identifies variants where BC quantity or price differs from FlxPoint values
+    /// - Builds JSON payloads with updated quantities, prices, costs, and MAP
+    /// - Checks "FlxPoint Enabled" flowfield - if disabled, sends quantity as 0
+    /// - Batches updates in groups of 50 (FlxPoint API limit)
+    /// - Sends batched PUT requests to update multiple variants at once
+    /// - Includes custom field "GOPRICE" with Business Central price
+    /// API Endpoint: PUT https://api.flxpoint.com/inventory/variants
+    /// </summary>
+    /// <param name="FlxPointInventory">Filtered FlxPoint Inventory recordset to process</param>
+    procedure UpdateFlxPointInventoryFiltered(var FlxPointInventory: Record "FlxPoint Inventory")
+    var
         Client: HttpClient;
         RequestMessage: HttpRequestMessage;
         ResponseMessage: HttpResponseMessage;
@@ -507,7 +528,7 @@ codeunit 50711 "FlxPoint Inventory Sync"
         TotalVariants := 0;
         UpdatedVariants := 0;
 
-        // Process all FlxPoint Inventory records
+        // Process filtered FlxPoint Inventory records
         if FlxPointInventory.FindSet() then begin
             Clear(JsonArray);
             repeat
@@ -517,6 +538,7 @@ codeunit 50711 "FlxPoint Inventory Sync"
                 if (FlxPointInventory."Business Central QOH" <> FlxPointInventory.Quantity) or (FlxPointInventory."Business Central Price" <> FlxPointInventory.MSRP) or (FlxPointInventory."Inventory List Price" <> FlxPointInventory."Business Central Price") then begin
                     // Build JSON object for this variant
                     Clear(JsonObject);
+
                     JsonObject.Add('inventoryVariantId', FlxPointInventory."Inventory Variant ID");
                     JsonObject.Add('sku', FlxPointInventory.SKU);
 
@@ -550,7 +572,7 @@ codeunit 50711 "FlxPoint Inventory Sync"
 
                     // Send batch when max size reached
                     if BatchCount >= MaxBatchSize then begin
-                        //SendBatchRequest(JsonArray, FlxPointSetup);
+                        SendBatchRequest(JsonArray, FlxPointSetup);
                         Clear(JsonArray);
                         BatchCount := 0;
                     end;
@@ -606,14 +628,19 @@ codeunit 50711 "FlxPoint Inventory Sync"
 
         // Execute request and handle response
         if not Client.Send(RequestMessage, ResponseMessage) then begin
-            exit; // Network/communication error
+            // Network/communication error
+            Session.LogMessage('FlxPoint-InvSync-0001', StrSubstNo('Failed to send batch update request to FlxPoint API. Batch size: %1', JsonArray.Count), Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+            exit;
         end;
 
         if not ResponseMessage.IsSuccessStatusCode() then begin
             ResponseMessage.Content().ReadAs(ResponseText);
-            exit; // API returned error status
+            // Log error response for troubleshooting
+            Session.LogMessage('FlxPoint-InvSync-0002', StrSubstNo('FlxPoint API returned error for batch update. Status: %1, Response: %2, Batch size: %3', ResponseMessage.HttpStatusCode(), ResponseText, JsonArray.Count), Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+            exit;
         end;
         // Success - variants updated in FlxPoint
+        Session.LogMessage('FlxPoint-InvSync-0003', StrSubstNo('Successfully sent batch update to FlxPoint API. Batch size: %1', JsonArray.Count), Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
     end;
 
     /// <summary>

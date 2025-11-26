@@ -135,17 +135,36 @@ page 50730 "FlxPoint Inventory"
             action(SyncInventory)
             {
                 ApplicationArea = All;
-                Caption = 'Sync Inventory';
+                Caption = 'Sync Filtered Inventory';
                 Image = Refresh;
                 Promoted = true;
                 PromotedCategory = Process;
                 PromotedIsBig = true;
-                ToolTip = 'Synchronize inventory data from FlxPoint';
+                ToolTip = 'Synchronize only the filtered inventory items to FlxPoint';
 
                 trigger OnAction()
                 var
                     FlxPointInventorySync: Codeunit "FlxPoint Inventory Sync";
                 begin
+                    // Only update filtered items, not full sync
+                    FlxPointInventorySync.UpdateFlxPointInventoryFiltered(Rec);
+                end;
+            }
+            action(SyncAllInventory)
+            {
+                ApplicationArea = All;
+                Caption = 'Sync All Inventory';
+                Image = RefreshLines;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                ToolTip = 'Perform full bidirectional synchronization of all inventory data with FlxPoint (pulls from FlxPoint and pushes updates back)';
+
+                trigger OnAction()
+                var
+                    FlxPointInventorySync: Codeunit "FlxPoint Inventory Sync";
+                begin
+                    // Full sync: pull from FlxPoint and push updates back for all products
                     FlxPointInventorySync.Run();
                 end;
             }
