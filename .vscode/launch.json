@@ -7,7 +7,7 @@
             "type": "al",
             "environmentType": "Sandbox",
             "environmentName": "KADEV",
-            "startupObjectId": 50748,
+            "startupObjectId": 50730,
             "startupObjectType": "Page",
             "breakOnError": "All",
             "launchBrowser": true,
