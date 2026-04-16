@@ -72,6 +72,12 @@ page 50709 "FlxPoint Fulfillment Req Card"
                     ToolTip = 'Date and time when the sales order was created.';
                     Editable = false;
                 }
+                field("FlxPoint Ack. Notified At"; Rec."FlxPoint Ack. Notified At")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'When Business Central last confirmed fulfillment acknowledgment with FlxPoint for this request.';
+                    Editable = false;
+                }
                 field("Shipped Status"; Rec."Shipped Status")
                 {
                     ApplicationArea = All;

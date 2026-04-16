@@ -285,6 +285,11 @@ table 50705 "FlxPoint Fulfillment Req"
             Caption = 'Sales Order Error Message';
             DataClassification = CustomerContent;
         }
+        field(55; "FlxPoint Ack. Notified At"; DateTime)
+        {
+            Caption = 'FlxPoint Ack. Notified At';
+            DataClassification = CustomerContent;
+        }
     }
     keys
     {

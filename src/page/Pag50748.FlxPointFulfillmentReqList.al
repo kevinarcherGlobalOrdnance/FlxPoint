@@ -50,6 +50,11 @@ page 50748 "FlxPoint Fulfillment Req List"
                     ApplicationArea = All;
                     ToolTip = 'Business Central sales order number if created.';
                 }
+                field("FlxPoint Ack. Notified At"; Rec."FlxPoint Ack. Notified At")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'When Business Central last confirmed fulfillment acknowledgment with FlxPoint for this request.';
+                }
                 field("Shipping Name"; Rec."Shipping Name")
                 {
                     ApplicationArea = All;

@@ -35,6 +35,10 @@ codeunit 50704 "FlxPoint Fulfillment"
         Page: Integer;
         HasMorePages: Boolean;
         PageSize: Integer;
+        Cutoff: DateTime;
+        Lookback: Duration;
+        FilterGeneratedAfterIso: Text;
+        FilterGeneratedAfterEncoded: Text;
     begin
         if not FlxPointSetup.Get('DEFAULT')then begin
             CreateJobQueueLogEntry('FlxPoint Setup Error', 'FlxPoint Setup not found.', true);
@@ -46,6 +50,10 @@ codeunit 50704 "FlxPoint Fulfillment"
         end;
         // Initialize the result array only if it's empty
         if FulfillmentRequests.Count = 0 then Clear(FulfillmentRequests);
+        Lookback := 14 * 24 * 60 * 60 * 1000;
+        Cutoff := CurrentDateTime - Lookback;
+        FilterGeneratedAfterIso := Format(Cutoff, 0, '<Year4>-<Month,2>-<Day,2>T<Hours24,2>:<Minutes,2>:<Seconds,2>Z');
+        FilterGeneratedAfterEncoded := EscapeUriQueryValue(FilterGeneratedAfterIso);
         Page:=1;
         PageSize:=20; // Adjust page size as needed
         HasMorePages:=true;
@@ -53,7 +61,7 @@ codeunit 50704 "FlxPoint Fulfillment"
             // Create a new request message for each page
             Clear(RequestMessage);
             RequestMessage.Method:='GET';
-            RequestMessage.SetRequestUri('https://api.flxpoint.com/fulfillment-requests?filterPageSize=' + Format(PageSize) + '&filterPageNumber=' + Format(Page));
+            RequestMessage.SetRequestUri('https://api.flxpoint.com/fulfillment-requests?filterPageSize=' + Format(PageSize) + '&filterPageNumber=' + Format(Page) + '&filterGeneratedAfter=' + FilterGeneratedAfterEncoded);
             RequestMessage.GetHeaders(RequestHeaders);
             RequestHeaders.Add('Accept', 'application/json');
             RequestHeaders.Add('X-Api-Token', FlxPointSetup."API Key");
@@ -372,6 +380,16 @@ codeunit 50704 "FlxPoint Fulfillment"
     begin
         Session.LogMessage('FlxPointFulfillment', ErrorMessage, Verbosity::Warning, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
     end;
+    local procedure SetFlxPointAckNotifiedByRequestId(RequestIdText: Text)
+    var
+        FlxPointFulfillmentReq: Record "FlxPoint Fulfillment Req";
+        RequestId: Integer;
+    begin
+        if Evaluate(RequestId, RequestIdText)then if FlxPointFulfillmentReq.Get(RequestId)then begin
+                FlxPointFulfillmentReq."FlxPoint Ack. Notified At":=CurrentDateTime;
+                FlxPointFulfillmentReq.Modify(true);
+            end;
+    end;
     procedure AcknowledgeFulfillmentRequest(FulfillmentRequestId: Text): Boolean var
         Client: HttpClient;
         RequestMessage: HttpRequestMessage;
@@ -415,7 +433,10 @@ codeunit 50704 "FlxPoint Fulfillment"
                 StatusObj:=JsonToken.AsObject();
                 if StatusObj.Get('name', JsonToken)then if JsonToken.IsValue()then if not JsonToken.AsValue().IsNull()then begin
                             StatusName:=JsonToken.AsValue().AsText();
-                            if StatusName = 'Acknowledged' then exit(true); // Already acknowledged, no need to acknowledge again
+                            if StatusName = 'Acknowledged' then begin
+                                SetFlxPointAckNotifiedByRequestId(FulfillmentRequestId);
+                                exit(true);
+                            end;
                         end;
             end;
         // If not acknowledged, proceed with acknowledgment
@@ -434,8 +455,20 @@ codeunit 50704 "FlxPoint Fulfillment"
             exit(false);
         end;
         Session.LogMessage('FlxPointFulfillment', StrSubstNo('Successfully acknowledged fulfillment request %1', FulfillmentRequestId), Verbosity::Normal, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+        SetFlxPointAckNotifiedByRequestId(FulfillmentRequestId);
         exit(true);
     end;
+    local procedure EscapeUriQueryValue(Value: Text): Text
+    var
+        Result: Text;
+    begin
+        Result := Value;
+        Result := Result.Replace('+', '%2B');
+        Result := Result.Replace(' ', '%20');
+        Result := Result.Replace(':', '%3A');
+        exit(Result);
+    end;
+
     local procedure CreateJobQueueLogEntry(Description: Text; ErrorMessage: Text; IsError: Boolean)
     var
         JobQueueLogEntry: Record "Job Queue Log Entry";
