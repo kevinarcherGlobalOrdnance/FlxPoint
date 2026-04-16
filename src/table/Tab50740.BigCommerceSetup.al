@@ -49,6 +49,12 @@ table 50740 "BigCommerce Setup"
             DataClassification = CustomerContent;
             ToolTip = 'Enable or disable BigCommerce integration';
         }
+        field(70; "Earliest Order Date"; Date)
+        {
+            Caption = 'Earliest Order Date';
+            DataClassification = CustomerContent;
+            ToolTip = 'When fetching order lines, only retrieve orders created on or after this date. Leave blank to use a default (e.g. 90 days ago) to avoid long runs.';
+        }
     }
     keys
     {
@@ -64,6 +70,15 @@ table 50740 "BigCommerce Setup"
     procedure GetAPIBaseURL(): Text begin
         if "Store Hash" = '' then exit("API Base URL");
         exit("API Base URL".Replace('{store_hash}', "Store Hash"));
+    end;
+    /// <summary>
+    /// Returns the base URL for BigCommerce V2 Orders API (e.g. for /orders and /orders/{id}/products).
+    /// </summary>
+    procedure GetOrdersAPIBaseURL(): Text
+    begin
+        if "Store Hash" = '' then
+            exit('');
+        exit(StrSubstNo('https://api.bigcommerce.com/stores/%1/v2/', "Store Hash"));
     end;
     procedure TestConnection(): Boolean var
         Client: HttpClient;

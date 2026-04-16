@@ -47,6 +47,17 @@ page 50740 "BigCommerce Setup"
                     ToolTip = 'Enable or disable BigCommerce integration';
                 }
             }
+            group("Order Retrieval")
+            {
+                Caption = 'Order Retrieval';
+                Visible = Rec.Enabled;
+
+                field("Earliest Order Date"; Rec."Earliest Order Date")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'When fetching order lines, only orders created on or after this date are retrieved. Set this to avoid long runtimes (e.g. start from 90 days ago).';
+                }
+            }
         }
     }
     actions
@@ -73,6 +84,14 @@ page 50740 "BigCommerce Setup"
         }
         area(Navigation)
         {
+            action(OrderLines)
+            {
+                ApplicationArea = All;
+                Caption = 'Order Lines';
+                Image = OrderList;
+                ToolTip = 'View order lines fetched from BigCommerce.';
+                RunObject = page "BigCommerce Order Lines";
+            }
             action(OpenBigCommerceAdmin)
             {
                 ApplicationArea = All;

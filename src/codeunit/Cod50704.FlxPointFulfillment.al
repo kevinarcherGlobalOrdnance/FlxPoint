@@ -61,7 +61,8 @@ codeunit 50704 "FlxPoint Fulfillment"
             // Create a new request message for each page
             Clear(RequestMessage);
             RequestMessage.Method:='GET';
-            RequestMessage.SetRequestUri('https://api.flxpoint.com/fulfillment-requests?filterPageSize=' + Format(PageSize) + '&filterPageNumber=' + Format(Page) + '&filterGeneratedAfter=' + FilterGeneratedAfterEncoded);
+            // filterEligibleForProcessing=true: only Open/Not Managed orders with FR in Unprocessed (reduces API payload vs null/false)
+            RequestMessage.SetRequestUri('https://api.flxpoint.com/fulfillment-requests?filterPageSize=' + Format(PageSize) + '&filterPageNumber=' + Format(Page) + '&filterGeneratedAfter=' + FilterGeneratedAfterEncoded + '&filterEligibleForProcessing=true');
             RequestMessage.GetHeaders(RequestHeaders);
             RequestHeaders.Add('Accept', 'application/json');
             RequestHeaders.Add('X-Api-Token', FlxPointSetup."API Key");

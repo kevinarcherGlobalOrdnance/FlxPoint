@@ -16,15 +16,20 @@ codeunit 50708 "FlxPoint Ack Fulfillment"
         if not FlxPointSetup.Enabled then Error('FlxPoint integration is not enabled.');
         TotalProcessed:=0;
         ErrorCount:=0;
-        // Get all fulfillment requests with sales orders
         FlxPointFulfillmentReq.SetFilter("Sales Order No.", '<>%1', '');
-        if FlxPointFulfillmentReq.FindSet()then repeat if AcknowledgeFulfillmentRequest(Format(FlxPointFulfillmentReq."Request ID"))then TotalProcessed+=1
+        FlxPointFulfillmentReq.SetRange("FlxPoint Ack. Notified At", 0DT);
+        if FlxPointFulfillmentReq.FindSet()then repeat if AcknowledgeFulfillmentRequest(FlxPointFulfillmentReq)then TotalProcessed+=1
                 else
                     ErrorCount+=1;
             until FlxPointFulfillmentReq.Next() = 0;
         if ErrorCount > 0 then Session.LogMessage('FlxPointAcknowledge', StrSubstNo('Processed %1 fulfillment requests with %2 errors', TotalProcessed, ErrorCount), Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
     end;
-    local procedure AcknowledgeFulfillmentRequest(FulfillmentRequestId: Text): Boolean var
+    local procedure SetFlxPointAckNotified(var FlxPointFulfillmentReq: Record "FlxPoint Fulfillment Req")
+    begin
+        FlxPointFulfillmentReq."FlxPoint Ack. Notified At":=CurrentDateTime;
+        FlxPointFulfillmentReq.Modify(true);
+    end;
+    local procedure AcknowledgeFulfillmentRequest(var FlxPointFulfillmentReq: Record "FlxPoint Fulfillment Req"): Boolean var
         Client: HttpClient;
         RequestMessage: HttpRequestMessage;
         ResponseMessage: HttpResponseMessage;
@@ -34,8 +39,9 @@ codeunit 50708 "FlxPoint Ack Fulfillment"
         JsonToken: JsonToken;
         StatusObj: JsonObject;
         StatusName: Text;
+        FulfillmentRequestId: Text;
     begin
-        // First get the request to check its status
+        FulfillmentRequestId:=Format(FlxPointFulfillmentReq."Request ID");
         RequestMessage.Method:='GET';
         RequestMessage.SetRequestUri('https://api.flxpoint.com/fulfillment-requests/' + FulfillmentRequestId);
         RequestMessage.GetHeaders(RequestHeaders);
@@ -61,15 +67,15 @@ codeunit 50708 "FlxPoint Ack Fulfillment"
                             StatusName:=JsonToken.AsValue().AsText();
                             if StatusName = 'Acknowledged' then begin
                                 Session.LogMessage('FlxPointAcknowledge', StrSubstNo('Fulfillment request %1 already acknowledged', FulfillmentRequestId), Verbosity::Normal, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
-                                exit;
+                                SetFlxPointAckNotified(FlxPointFulfillmentReq);
+                                exit(true);
                             end;
                             if StatusName <> 'Processing' then begin
                                 Session.LogMessage('FlxPointAcknowledge', StrSubstNo('Fulfillment request %1 not in Processing status (current status: %2)', FulfillmentRequestId, StatusName), Verbosity::Normal, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
-                                exit;
+                                exit(false);
                             end;
                         end;
             end;
-        // If not acknowledged, proceed with acknowledgment
         Clear(RequestMessage);
         RequestMessage.Method:='PATCH';
         RequestMessage.SetRequestUri('https://api.flxpoint.com/fulfillment-requests/' + FulfillmentRequestId + '/acknowledge');
@@ -86,6 +92,7 @@ codeunit 50708 "FlxPoint Ack Fulfillment"
             exit(false);
         end;
         Session.LogMessage('FlxPointAcknowledge', StrSubstNo('Successfully acknowledged fulfillment request %1', FulfillmentRequestId), Verbosity::Normal, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+        SetFlxPointAckNotified(FlxPointFulfillmentReq);
         exit(true);
     end;
 }

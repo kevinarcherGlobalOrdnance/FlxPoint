@@ -10,12 +10,20 @@ codeunit 50713 "FlxPoint Create Inventory"
         BatchSize: Integer;
         CurrentBatch: Integer;
         TotalItems: Integer;
+        ErrorMessages: List of [Text];
+        ErrorSummary: Text;
+        ErrorDetails: Text;
+        ErrorMsg: Text;
     begin
-        if not FlxPointSetup.Get('DEFAULT') then
+        if not FlxPointSetup.Get('DEFAULT') then begin
+            Error('FlxPoint Setup not found. Please configure FlxPoint Setup first.');
             exit(false);
+        end;
 
-        if not FlxPointSetup.Enabled then
+        if not FlxPointSetup.Enabled then begin
+            Error('FlxPoint integration is disabled. Please enable it in FlxPoint Setup.');
             exit(false);
+        end;
 
         // Filter items that are FlxPoint enabled
         Item.SetRange("FlxPoint Enabled", true);
@@ -34,16 +42,41 @@ codeunit 50713 "FlxPoint Create Inventory"
         // Process in batches of 20
         BatchSize := 20;
         CurrentBatch := 0;
+        Clear(ErrorMessages);
+
+        // Log start of process
+        Session.LogMessage('FlxPoint-CreateInv-0001', StrSubstNo('Processing started. Total items to process: %1', TotalItems), Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
 
         // Collect all items and process in batches
-        if ProcessAllItemsInBatches(Item, ItemReference, BatchSize, ProcessedCount, ErrorCount, CurrentBatch) then begin
+        if ProcessAllItemsInBatches(Item, ItemReference, BatchSize, ProcessedCount, ErrorCount, CurrentBatch, ErrorMessages) then begin
             // Success
         end;
 
-        exit(ErrorCount = 0);
+        // Log completion
+        Session.LogMessage('FlxPoint-CreateInv-0005', StrSubstNo('Processing completed. Processed: %1, Errors: %2', ProcessedCount, ErrorCount), Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+
+        // Display errors at the end if any occurred
+        if ErrorMessages.Count > 0 then begin
+            ErrorSummary := StrSubstNo('Inventory creation completed with %1 error(s).\', ErrorCount);
+            ErrorSummary += StrSubstNo('Successfully processed: %1 item(s)\', ProcessedCount);
+            ErrorSummary += '\Error Details:\';
+
+            foreach ErrorMsg in ErrorMessages do begin
+                ErrorDetails += ErrorMsg + '\';
+            end;
+
+            Error(ErrorSummary + ErrorDetails);
+            exit(false);
+        end;
+
+        // Success message if no errors
+        if ProcessedCount > 0 then
+            Message('Successfully created %1 inventory item(s) in FlxPoint.', ProcessedCount);
+
+        exit(true);
     end;
 
-    local procedure ProcessAllItemsInBatches(var Item: Record Item; var ItemReference: Record "Item Reference"; BatchSize: Integer; var ProcessedCount: Integer; var ErrorCount: Integer; var CurrentBatch: Integer): Boolean
+    local procedure ProcessAllItemsInBatches(var Item: Record Item; var ItemReference: Record "Item Reference"; BatchSize: Integer; var ProcessedCount: Integer; var ErrorCount: Integer; var CurrentBatch: Integer; var ErrorMessages: List of [Text]): Boolean
     var
         BatchJsonArray: JsonArray;
         FlxPointSetup: Record "FlxPoint Setup";
@@ -56,6 +89,8 @@ codeunit 50713 "FlxPoint Create Inventory"
         HttpContent: HttpContent;
         JsonText: Text;
         ItemsInCurrentBatch: Integer;
+        BatchItemList: List of [Text]; // Track items in current batch
+        ItemInfo: Text;
     begin
         if not FlxPointSetup.Get('DEFAULT') then
             exit(false);
@@ -75,7 +110,7 @@ codeunit 50713 "FlxPoint Create Inventory"
                             // Send current batch
                             if ItemsInCurrentBatch > 0 then begin
                                 CurrentBatch += 1;
-                                if SendBatchToFlxPoint(BatchJsonArray, FlxPointSetup, Client, RequestMessage, ResponseMessage, RequestHeaders, ContentHeaders, ResponseText, HttpContent, JsonText, CurrentBatch, ItemsInCurrentBatch) then
+                                if SendBatchToFlxPoint(BatchJsonArray, FlxPointSetup, Client, RequestMessage, ResponseMessage, RequestHeaders, ContentHeaders, ResponseText, HttpContent, JsonText, CurrentBatch, ItemsInCurrentBatch, BatchItemList, ErrorMessages) then
                                     ProcessedCount += ItemsInCurrentBatch
                                 else
                                     ErrorCount += 1;
@@ -83,11 +118,15 @@ codeunit 50713 "FlxPoint Create Inventory"
 
                             // Start new batch
                             Clear(BatchJsonArray);
+                            Clear(BatchItemList);
                             ItemsInCurrentBatch := 0;
                         end;
 
                         // Add item to current batch
                         BuildInventoryItemJson(BatchJsonArray, Item, ItemReference);
+                        // Track which items are in this batch for error reporting
+                        ItemInfo := StrSubstNo('Item: %1, UPC: %2', Item."No.", ItemReference."Reference No.");
+                        BatchItemList.Add(ItemInfo);
                         ItemsInCurrentBatch += 1;
                     until ItemReference.Next() = 0;
                 end;
@@ -97,7 +136,7 @@ codeunit 50713 "FlxPoint Create Inventory"
         // Send final batch if it has items
         if ItemsInCurrentBatch > 0 then begin
             CurrentBatch += 1;
-            if SendBatchToFlxPoint(BatchJsonArray, FlxPointSetup, Client, RequestMessage, ResponseMessage, RequestHeaders, ContentHeaders, ResponseText, HttpContent, JsonText, CurrentBatch, ItemsInCurrentBatch) then
+            if SendBatchToFlxPoint(BatchJsonArray, FlxPointSetup, Client, RequestMessage, ResponseMessage, RequestHeaders, ContentHeaders, ResponseText, HttpContent, JsonText, CurrentBatch, ItemsInCurrentBatch, BatchItemList, ErrorMessages) then
                 ProcessedCount += ItemsInCurrentBatch
             else
                 ErrorCount += 1;
@@ -106,9 +145,12 @@ codeunit 50713 "FlxPoint Create Inventory"
         exit(true);
     end;
 
-    local procedure SendBatchToFlxPoint(var BatchJsonArray: JsonArray; FlxPointSetup: Record "FlxPoint Setup"; var Client: HttpClient; var RequestMessage: HttpRequestMessage; var ResponseMessage: HttpResponseMessage; var RequestHeaders: HttpHeaders; var ContentHeaders: HttpHeaders; var ResponseText: Text; var HttpContent: HttpContent; var JsonText: Text; BatchNumber: Integer; ItemsInBatch: Integer): Boolean
+    local procedure SendBatchToFlxPoint(var BatchJsonArray: JsonArray; FlxPointSetup: Record "FlxPoint Setup"; var Client: HttpClient; var RequestMessage: HttpRequestMessage; var ResponseMessage: HttpResponseMessage; var RequestHeaders: HttpHeaders; var ContentHeaders: HttpHeaders; var ResponseText: Text; var HttpContent: HttpContent; var JsonText: Text; BatchNumber: Integer; ItemsInBatch: Integer; var BatchItemList: List of [Text]; var ErrorMessages: List of [Text]): Boolean
     var
         ResponseJsonArray: JsonArray;
+        ErrorMsg: Text;
+        ItemInfo: Text;
+        ItemsInBatchText: Text;
     begin
         // Convert to text for sending
         BatchJsonArray.WriteTo(JsonText);
@@ -129,12 +171,31 @@ codeunit 50713 "FlxPoint Create Inventory"
         RequestMessage.Content := HttpContent;
 
         // Send request
-        if not Client.Send(RequestMessage, ResponseMessage) then
+        if not Client.Send(RequestMessage, ResponseMessage) then begin
+            // Network/communication error
+            ItemsInBatchText := '';
+            foreach ItemInfo in BatchItemList do begin
+                if ItemsInBatchText <> '' then ItemsInBatchText += ', ';
+                ItemsInBatchText += ItemInfo;
+            end;
+            ErrorMsg := StrSubstNo('Batch %1 (%2 items): Network error - Failed to send request to FlxPoint API. Items: %3', BatchNumber, ItemsInBatch, ItemsInBatchText);
+            ErrorMessages.Add(ErrorMsg);
+            Session.LogMessage('FlxPoint-CreateInv-0017', ErrorMsg, Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
             exit(false);
+        end;
 
         // Check response
         if not ResponseMessage.IsSuccessStatusCode() then begin
             ResponseMessage.Content().ReadAs(ResponseText);
+            // API error response
+            ItemsInBatchText := '';
+            foreach ItemInfo in BatchItemList do begin
+                if ItemsInBatchText <> '' then ItemsInBatchText += ', ';
+                ItemsInBatchText += ItemInfo;
+            end;
+            ErrorMsg := StrSubstNo('Batch %1 (%2 items): FlxPoint API error - Status: %3, Response: %4. Items: %5', BatchNumber, ItemsInBatch, ResponseMessage.HttpStatusCode(), CopyStr(ResponseText, 1, 500), ItemsInBatchText);
+            ErrorMessages.Add(ErrorMsg);
+            Session.LogMessage('FlxPoint-CreateInv-0018', StrSubstNo('Batch %1 API error: Status %2, Response: %3', BatchNumber, ResponseMessage.HttpStatusCode(), CopyStr(ResponseText, 1, 500)), Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
             exit(false);
         end;
 
@@ -144,6 +205,18 @@ codeunit 50713 "FlxPoint Create Inventory"
         // Parse response to get created item details
         if ResponseJsonArray.ReadFrom(ResponseText) then begin
             ProcessBatchResponse(ResponseJsonArray, BatchNumber);
+            Session.LogMessage('FlxPoint-CreateInv-0019', StrSubstNo('Batch %1 completed successfully with %2 items', BatchNumber, ItemsInBatch), Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+        end else begin
+            // JSON parsing error
+            ItemsInBatchText := '';
+            foreach ItemInfo in BatchItemList do begin
+                if ItemsInBatchText <> '' then ItemsInBatchText += ', ';
+                ItemsInBatchText += ItemInfo;
+            end;
+            ErrorMsg := StrSubstNo('Batch %1 (%2 items): Invalid response format from FlxPoint API. Items: %3', BatchNumber, ItemsInBatch, ItemsInBatchText);
+            ErrorMessages.Add(ErrorMsg);
+            Session.LogMessage('FlxPoint-CreateInv-0018', StrSubstNo('Batch %1 JSON parsing error', BatchNumber), Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+            exit(false);
         end;
 
         exit(true);
@@ -173,6 +246,7 @@ codeunit 50713 "FlxPoint Create Inventory"
     local procedure ProcessItemReference(Item: Record Item; ItemReference: Record "Item Reference"): Boolean
     begin
         // Create the item in FlxPoint (regardless of whether it already exists)
+        // Note: This procedure is kept for backward compatibility but CreateInventoryItemForItem now handles errors directly
         exit(CreateInventoryItem(Item, ItemReference));
     end;
 
@@ -313,8 +387,8 @@ codeunit 50713 "FlxPoint Create Inventory"
         FlxPointSetup.Get('DEFAULT');
         pricelistline.SETRANGE(PriceListLine."Price List Code", FlxPointSetup."Price List Code");
         pricelistline.SetRange("Item Reference", ItemReference."Reference No.");
-        CustomFieldObject.Add('name', 'GOPRICE'); 
-       IF pricelistline.FindFirst() then
+        CustomFieldObject.Add('name', 'GOPRICE');
+        IF pricelistline.FindFirst() then
             CustomFieldObject.Add('value', Format(pricelistline."Unit Price")) else
             CustomFieldObject.Add('value', '1.99');
         CustomFieldsArray.Add(CustomFieldObject);
@@ -364,12 +438,20 @@ codeunit 50713 "FlxPoint Create Inventory"
         ItemReference: Record "Item Reference";
         ProcessedCount: Integer;
         ErrorCount: Integer;
+        ErrorMessages: List of [Text];
+        ErrorMsg: Text;
+        ErrorSummary: Text;
+        ErrorDetails: Text;
     begin
-        if not Item.Get(ItemNo) then
+        if not Item.Get(ItemNo) then begin
+            Error('Item %1 not found.', ItemNo);
             exit(false);
+        end;
 
-        if not Item."FlxPoint Enabled" then
+        if not Item."FlxPoint Enabled" then begin
+            Error('Item %1 is not FlxPoint enabled.', ItemNo);
             exit(false);
+        end;
 
         // Find item references for this item with barcode type
         ItemReference.SetRange("Item No.", Item."No.");
@@ -378,13 +460,37 @@ codeunit 50713 "FlxPoint Create Inventory"
         if not ItemReference.FindSet() then
             exit(true);
 
+        Clear(ErrorMessages);
         repeat
-            if ProcessItemReference(Item, ItemReference) then
-                ProcessedCount += 1
-            else
+            if not CreateInventoryItem(Item, ItemReference) then begin
                 ErrorCount += 1;
+                ErrorMsg := StrSubstNo('Item: %1, UPC: %2 - Failed to create inventory item in FlxPoint', Item."No.", ItemReference."Reference No.");
+                ErrorMessages.Add(ErrorMsg);
+                Session.LogMessage('FlxPoint-CreateInv-0021', ErrorMsg, Verbosity::Error, DataClassification::CustomerContent, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+            end else begin
+                ProcessedCount += 1;
+                Session.LogMessage('FlxPoint-CreateInv-0020', StrSubstNo('Item %1 (UPC: %2) created successfully', Item."No.", ItemReference."Reference No."), Verbosity::Normal, DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, 'Category', 'FlxPoint');
+            end;
         until ItemReference.Next() = 0;
 
-        exit(ErrorCount = 0);
+        // Display errors if any occurred
+        if ErrorMessages.Count > 0 then begin
+            ErrorSummary := StrSubstNo('Inventory creation for item %1 completed with %2 error(s).\', ItemNo, ErrorCount);
+            ErrorSummary += StrSubstNo('Successfully processed: %1 item reference(s)\', ProcessedCount);
+            ErrorSummary += '\Error Details:\';
+
+            foreach ErrorMsg in ErrorMessages do begin
+                ErrorDetails += ErrorMsg + '\';
+            end;
+
+            Error(ErrorSummary + ErrorDetails);
+            exit(false);
+        end;
+
+        // Success message if no errors
+        if ProcessedCount > 0 then
+            Message('Successfully created %1 inventory item(s) for item %2 in FlxPoint.', ProcessedCount, ItemNo);
+
+        exit(true);
     end;
 }
